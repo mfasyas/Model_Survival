@@ -1,22 +1,15 @@
 setwd("F:\\Coding\\R\\Model_Survival")
+# Ganti dengan directory anda
 getwd()
 library(survival)
 library(survminer)
 library(dplyr)
+library(Rcpp)
 
-data <- read.csv("Data_Project_Modsur2.csv")
-View(df)
+data <- read.csv("Data_Project_Modusr2_Cleaned_alt")
+head(data)
 
-df <- data[
-    c(
-        "tenure",
-         "Churn",
-         "Contract",
-         "InternetService",
-         "SeniorCitizen",
-         "PaymentMethod"
-    )
-]
+df <- data[, setdiff(names(data), c("Churn", "SeniorCitizen"))]
 
 head(df)
 
@@ -24,27 +17,79 @@ head(df)
 # Ini berdasarkan informasi dari instruksi Project 2
 # Berdasarkan data dan deskripsi yang diobservasi di sini adalah status churn (1 ketika tidak aktif, 0 ketika aktif/censored)
 
+#===========================================================================
 # Nomor 1
-# Encoding label Contract
+#===========================================================================
+# Apakah ada perbedaan waktu survival antar jenis kontrak (Month-to-month, One year, Two year)
 
-df$ContractEncode <- as.integer(factor(df$Contract))
 
-# Month-to-month = 1, One year = 2, Two year = 3
+names(df)[names(df) == "ChurnEncode"] <- "Churn"
+names(df)[names(df) == "SeniorCitizenEncode"] <- "SeniorCitizen"
 
-df$Churn <- ifelse(df$Churn == "True", 1, 0)
+df$Churn <- ifelse(df$Churn == "Yes", 1, 0)
 
-dfcurve0 <- survfit(Surv(tenure, Churn)~ContractEncode, data = df)
+dfcurve0 <- survfit(Surv(tenure, Churn)~Contract, data = df)
 
+print(dfcurve0)
 summary(dfcurve0)
 
-ggsurvplot(
+# Plot Kaplan-Meier terhadap grup "Month", "One Year", dan "Two Year"
+plot0 <- ggsurvplot(
   dfcurve0,
   size = 1,
   palette = c("#E7B800", "#2E9FDF","#2b1101"),
-  conf.int = FALSE,
-  pval = FALSE,
+  conf.int = TRUE,
+  pval = TRUE,
   legend.labs = c("Month", "One Year", "Two Year"),
   ggtheme = theme_classic(),
   risk.table = FALSE,
   censor = FALSE
 )
+
+print(plot0)
+
+pair_wise0 <- pairwise_survdiff(Surv(tenure, Churn)~Contract, data = df)
+pair_wise0
+
+surv_diff0 <- survdiff(Surv(tenure, Churn)~Contract, data = df)
+surv_diff0
+
+#===========================================================================
+# Nomor 2
+#===========================================================================
+# Apakah ada tren peningkatan/penurunan survival seiring bertambahnya tagihan biaya
+# per bulan (MonthlyCharges)
+
+range(df$MonthlyCharges)
+# Nilai berada di antara 18.40 dan 118.65
+
+df$ChargesGroup <- ifelse(
+  df$MonthlyCharges < 40, 1, 
+  ifelse(
+    df$MonthlyCharges <80, 2, 3
+  )
+)
+
+dfcurve1 <- survfit(Surv(tenure, Churn)~ChargesGroup, data = df)
+
+print(dfcurve1)
+summary(dfcurve1)
+
+# Plot Kaplan-Meier terhadap grup "Month", "One Year", dan "Two Year"
+plot1 <- ggsurvplot(
+  dfcurve1,
+  size = 1,
+  palette = c("#E7B800", "#2E9FDF","#2b1101"),
+  conf.int = TRUE,
+  pval = TRUE,
+  legend.labs = c("Charges < 40", "Charges between 40 to 80", "Charges > 80"),
+  ggtheme = theme_classic(),
+  risk.table = FALSE,
+  censor = FALSE
+)
+print(plot1)
+
+# Uji trend menggunakan coxph()
+
+trend_test <- coxph(Surv(tenure, Churn)~factor(ChargesGroup), data = df)
+summary(trend_test)
