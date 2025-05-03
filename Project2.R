@@ -6,12 +6,13 @@ library(survminer)
 library(dplyr)
 library(Rcpp)
 
-data <- read.csv("Data_Project_Modusr2_Cleaned_alt")
+data <- read.csv("Data_Project_Modusr2_Cleaned_alt.csv")
 head(data)
 
 df <- data[, setdiff(names(data), c("Churn", "SeniorCitizen"))]
 
 head(df)
+View(df)
 
 # Diambil kolom tenure, Churn, Contract, InternetService, SeniorCitizen, dan PaymentMethod
 # Ini berdasarkan informasi dari instruksi Project 2
@@ -93,3 +94,52 @@ print(plot1)
 
 trend_test <- coxph(Surv(tenure, Churn)~factor(ChargesGroup), data = df)
 summary(trend_test)
+
+
+#===========================================================================
+# Nomor 3
+#===========================================================================
+# Apakah ada perbedaan survival antara jenis kontrak setelah dikontrol oleh 
+# status usia lanjut?
+
+dfcurve2 <- survfit(Surv(tenure, Churn)~Contract + strata(SeniorCitizen), data = df)
+
+print(dfcurve2)
+summary(dfcurve2)
+
+plot2 <- ggsurvplot(
+  dfcurve2,
+  size = 1,
+  palette = c("#E7B800", "#2E9FDF","#2b1101", "#2b2823", "#cfe079", "#4d5430"),
+  conf.int = FALSE,
+  pval = TRUE,
+  legend.labs = c("Month-No", "Month-Yes", "One Year-No", "One Year-Yes", "Two Year-No", "Two Year-Yes"),
+  ggtheme = theme_classic(),
+  risk.table = FALSE,
+  censor = FALSE
+)
+
+print(plot2)
+
+# stratifikasi 
+cox_model <- coxph(Surv(tenure, Churn)~Contract + strata(SeniorCitizen), data = df)
+summary(cox_model)
+
+ggforest(cox_model, data = df)
+
+dfcurve3 <- survfit(Surv(tenure, Churn)~SeniorCitizen, data = df)
+print(dfcurve3)
+summary(dfcurve3)
+
+plot3 <- ggsurvplot(
+  dfcurve3,
+  size = 1,
+  palette = c("#E7B800", "#2E9FDF"),
+  conf.int = FALSE,
+  pval = TRUE,
+  legend.labs = c("NonSenior", "Senior"),
+  ggtheme = theme_classic(),
+  risk.table = FALSE,
+  censor = FALSE
+)
+print(plot3)
